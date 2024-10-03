@@ -5,6 +5,13 @@ import numpy as np
 import random
 import os
 import pandas as pd
+from tqdm import tqdm
+import torch
+import torch.nn.functional as F
+from torch.distributions import Normal
+import matplotlib.pyplot as plt
+import rl_utils
+
 
 # Import Gymnasium stuff
 import gymnasium as gym
@@ -12,15 +19,7 @@ from gymnasium import Env
 from gymnasium.core import ObsType
 from gymnasium.spaces import Discrete, Box, Dict, Tuple, MultiBinary, MultiDiscrete
 
-import random
-import gym
-import numpy as np
-from tqdm import tqdm
-import torch
-import torch.nn.functional as F
-from torch.distributions import Normal
-import matplotlib.pyplot as plt
-import rl_utils
+
 
 class PolicyNetContinuous(torch.nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim, action_bound):
@@ -95,7 +94,10 @@ class SACContinuous:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        # state_array = state[0]  # Assuming state is always a tuple (array, {})
+        # print("Processed state array:", state_array)  # For debugging
+        # print("state: ", state, type(state))
+        state = torch.tensor(state, dtype=torch.float).to(self.device)
         action = self.actor(state)[0]
         return [action.item()]
 
@@ -164,460 +166,498 @@ class SACContinuous:
         self.soft_update(self.critic_2, self.target_critic_2)
 
 
+env_name = 'Pendulum-v1'
+env = gym.make(env_name)
+state_dim = env.observation_space.shape[0]
+action_dim = env.action_space.shape[0]
+action_bound = env.action_space.high[0]  # 动作最大值
+random.seed(0)
+np.random.seed(0)
+# env.seed(0)
+torch.manual_seed(0)
+
+actor_lr = 3e-4
+critic_lr = 3e-3
+alpha_lr = 3e-4
+num_episodes = 100
+hidden_dim = 128
+gamma = 0.99
+tau = 0.005  # 软更新参数
+buffer_size = 100000
+minimal_size = 1000
+batch_size = 64
+target_entropy = -env.action_space.shape[0]
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
+    "cpu")
+
+replay_buffer = rl_utils.ReplayBuffer(buffer_size)
+agent = SACContinuous(state_dim, hidden_dim, action_dim, action_bound,
+                      actor_lr, critic_lr, alpha_lr, target_entropy, tau,
+                      gamma, device)
+
+return_list = rl_utils.train_off_policy_agent(env, agent, num_episodes,
+                                              replay_buffer, minimal_size,
+                                              batch_size)
+
+episodes_list = list(range(len(return_list)))
+plt.plot(episodes_list, return_list)
+plt.xlabel('Episodes')
+plt.ylabel('Returns')
+plt.title('SAC on {}'.format(env_name))
+plt.show()
+
+mv_return = rl_utils.moving_average(return_list, 9)
+plt.plot(episodes_list, mv_return)
+plt.xlabel('Episodes')
+plt.ylabel('Returns')
+plt.title('SAC on {}'.format(env_name))
+plt.show()
+
+
+# class TrainSpeedControl(Env):
+#     def __init__(self):
+#         self.dt = 1  # in s
+#         self.sensor_range = 300.0  # in m
+#
+#         self.Mass = 300.0  # in Ton
+#         self.position = 0.0  # in m; track is 1-dim, only one coord is needed
+#         self.velocity = 0.0  # in m/s
+#         self.acceleration = 0.0  # in m/s**2
+#         self.prev_acceleration = 0.0  # in m/s**2
+#         self.Max_traction_F = 0.0  # in kN
+#         self.traction_power = 0.0  # in kW
+#         self.action_clipped = 0.0  # in m/s**2
+#         self.jerk = 0.0  # in m/s**3
+#         self.prev_action = 0.0  # [-1,1]
+#
+#         self.time = 0.0  # in s
+#         self.total_energy_kWh = 0.0  # in Wh
+#         self.reward = 0.0
+#
+#         self.reward_weights = [1.0, 0.5, 0.0, 1.0]
+#         self.energy_factor = 1.0
+#         # self.friction_deceleration = 0.02
+#
+#         self.track_length = 100000.0
+#         self.target = 2000.0
+#         self.speed_limit_positions = [0.0, self.target]
+#         self.speed_limits = [20.0, 0.0]
+#         self.speed_final = 0.0
+#         self.running_time = 170.0
+#
+#
+#         self.Time = TimeSpeed[0]
+#         self.Speed = TimeSpeed[1]
+#
+#         self.terminated = False
+#         self.truncated = False
+#         self.done = False
+#         self.episode_count = 0
+#         self.reroll_frequency = 10
+#
+#         (self.current_speed_limit, self.future_speed_limits,
+#          self.future_speed_limit_distances) = self.sensor(self.position)
+#
+#         self.specs = {
+#             'mass': 1000,
+#             'frontal_area': 2.38,
+#             'cW': 0.29,
+#             'acceleration_limits': [-1, 1],
+#             'velocity_limits': [-1, 100],
+#             'power_limits': [-50, 75],
+#             'track_length': [0, 2500]
+#         }
+#
+#         """
+#         # Meaning of state features
+#         # 1. Train's current positon
+#         # 2. Train's current velocity
+#         # 3. Current speed limit
+#         # 4. Next speed limit
+#         # 5. Distance to next speed limit
+#         """
+#
+#         # self.state_max = np.hstack(
+#         #     (self.specs['velocity_limits'][1],
+#         #      self.specs['acceleration_limits'][1],
+#         #      self.specs['velocity_limits'][1],
+#         #      self.specs['velocity_limits'][1],
+#         #      self.specs['track_length'][1]))
+#
+#         # self.state_min = np.hstack(
+#         #     (self.specs['velocity_limits'][0],
+#         #      self.specs['acceleration_limits'][0],
+#         #      self.specs['velocity_limits'][0],
+#         #      self.specs['velocity_limits'][0],
+#         #      self.specs['track_length'][0],))
+#         self.state_max = np.hstack(
+#               ( self.specs['track_length'][1],
+#                 self.specs['velocity_limits'][1],
+#                 self.specs['velocity_limits'][1],
+#                 self.specs['velocity_limits'][1] * np.ones(1),
+#                 self.sensor_range * np.ones(1)))
+#
+#         self.state_min = np.hstack(
+#               ( self.specs['track_length'][0],
+#                 self.specs['velocity_limits'][0],
+#                 self.specs['velocity_limits'][0],
+#                 self.specs['velocity_limits'][0] * np.ones(1),
+#                 np.zeros(1)))
+#
+#         self.action_space = Box(low=-1.0,
+#                                 high=1.0,
+#                                 shape=(1,),
+#                                 dtype=np.float32)
+#
+#         self.observation_space = Box(low=self.state_min,
+#                                      high=self.state_max,
+#                                      dtype=np.float64)
+#
+#     def step(self, action):
+#         """
+#         Take one 10Hz step:
+#         Update time, position, velocity, jerk, limits.
+#         Check if episode is done.
+#         Get reward.
+#         :param action: float within (-1, 1)
+#         :return: state, reward, done, info
+#         """
+#
+#         assert self.action_space.contains(action), \
+#             f'{action} ({type(action)}) invalid shape or bounds'
+#
+#         self.action_clipped = np.clip(action, -1, 1)[0]
+#         # print("velocity:", self.velocity)
+#         # print("positon:", self.position)
+#         self.update_motion(self.action_clipped)
+#
+#
+#         # s = 0.5 * a * t² + v0 * t + s0
+#         # self.position += (0.5 * self.acceleration * self.dt ** 2 +
+#         #                   self.velocity * self.dt)
+#         # # v = a * t + v0
+#         # self.velocity += self.acceleration * self.dt
+#
+#         # Update speed limit
+#         (self.current_speed_limit, self.future_speed_limits,
+#          self.future_speed_limit_distances) = self.sensor(self.position)
+#
+#         # Update others
+#         self.time += self.dt
+#         # self.jerk = abs(action_clipped - self.prev_action)
+#         # self.prev_action = self.action_clipped
+#
+#         # Judge terminated condition
+#         self.terminated = bool(self.position >= self.track_length or self.time > self.running_time + 1)
+#         if self.terminated:
+#           self.episode_count += 1
+#
+#         self.truncated = False
+#
+#         # Calculate reward
+#         reward_list = self.get_reward()
+#         # print("reward_list:", reward_list)
+#         self.reward = np.array(reward_list).dot(np.array(self.reward_weights))
+#
+#         if self.time == self.running_time:
+#           self.reward -= (self.velocity - self.speed_final)**2 + (self.position - self.target)**2
+#
+#         self.prev_acceleration = self.acceleration
+#
+#         # Update info
+#         info = {
+#             'position': self.position,
+#             'velocity': self.velocity,
+#             'acceleration': self.acceleration,
+#             'jerk': self.jerk,
+#             'time': self.time,
+#             'power': self.traction_power,
+#             'reward': self.reward,
+#             'action': self.action_clipped
+#         }
+#
+#         # Update state
+#         # state = self.feature_scaling(self.get_state())
+#         state = np.hstack([self.position, self.velocity, self.current_speed_limit,
+#                           self.future_speed_limits, self.future_speed_limit_distances])
+#
+#         return state, self.reward, self.terminated, self.truncated, info
+#
+#     def reset(
+#             self,
+#             *,
+#             seed: int | None = None,
+#             options: dict[str, Any] | None = None,
+#     ):
+#         self.position = 0.0  # in m; track is 1-dim, only one coord is needed
+#         self.velocity = 0.0  # in m/s
+#         self.acceleration = 0.0  # in m/s**2
+#         self.prev_acceleration = 0.0  # in m/s**2
+#         self.Max_traction_F = 0.0  # in kN
+#         self.jerk = 0.0  # in m/s**3
+#         self.time = 0.0  # in s
+#         self.total_energy_kWh = 0.0  # in Wh
+#         self.terminated = False
+#         self.truncated = False
+#         self.current_speed_limit = 0.0
+#         self.future_speed_limits = 0.0
+#         self.future_speed_limit_distances = 0.0
+#         self.action_clipped = 0.0  # in m/s**
+#         self.traction_power = 0.0
+#         # if self.episode_count % self.reroll_frequency == 0:
+#         #     second_limit_position = np.random.uniform(500, 1000)
+#         #     self.speed_limit_positions = [0.0, second_limit_position, 1800]
+#         #     self.speed_limits = np.append(np.random.randint(5, 21, size=2), 0.0)
+#
+#         # Update to call sensor method to initialize speed limits correctly
+#         (self.current_speed_limit, self.future_speed_limits, self.future_speed_limit_distances) = self.sensor(self.position)
+#         # print("current_speed_limit:", self.current_speed_limit)
+#         info = {
+#             'position': self.position,
+#             'velocity': self.velocity,
+#             'acceleration': self.acceleration,
+#             'jerk': self.jerk,
+#             'time': self.time,
+#             'power': self.traction_power,
+#             'reward': self.reward,
+#             'action': self.action_clipped
+#         }
+#
+#
+#         # state = self.feature_scaling(self.get_state
+#         state = np.hstack([self.position, self.velocity, self.current_speed_limit,
+#                            self.future_speed_limits, self.future_speed_limit_distances])
+#         return state, info
+#
+#
+#     def update_motion(self, action_clipped):
+#         resistance = self.Calc_Resistance()
+#         # print("resistance:", resistance)
+#         if self.velocity > 0:
+#             if action_clipped >= 0:
+#                 force = action_clipped * self.Calc_Max_traction_F()
+#                 # print("force1:", force)
+#                 self.traction_power = force * self.velocity
+#             else:
+#                 force = action_clipped * self.Calc_Max_braking_F()
+#                 # print("force2:", force)
+#                 self.traction_power = 0.0
+#
+#             self.acceleration = (force - resistance) / self.Mass
+#             # Prevent reversing if velocity might turn negative
+#             if self.velocity + self.acceleration * self.dt < 0:
+#                 self.acceleration = -self.velocity / self.dt
+#
+#         elif self.velocity == 0:
+#             if action_clipped > 0:
+#                 force = action_clipped * self.Calc_Max_traction_F()
+#                 # print("force3:", force)
+#
+#             else:
+#                 force = 0
+#                 # print("force4:", force)
+#
+#             self.acceleration = max(0, (force - resistance) / self.Mass)
+#             self.traction_power = 0  # No power since velocity is 0 at this step
+#
+#         # Update position and velocity using kinematic equations
+#         self.position += (0.5 * self.acceleration * self.dt ** 2 + self.velocity * self.dt)
+#         self.velocity += self.acceleration * self.dt
+#
+#
+#
+#     def sensor(self, position):
+#     # Treat negative positions as 0
+#         if position < 0:
+#             position = 0
+#
+#         current_speed_limit = 0.0
+#         current_speed_limit_i = 0
+#         next_speed_limit = 0.0
+#         next_speed_limit_distance = 0.0
+#           #next2_speed_limit = 0.0
+#           #next2_speed_limit_distance = 0.0
+#
+#           # Determine the current speed limit
+#         for i, (pos, sl) in enumerate(
+#                 zip(self.speed_limit_positions, self.speed_limits)):
+#           if pos <= position:
+#                 current_speed_limit = sl
+#                 current_speed_limit_i = i
+#
+#         # Determine the current speed limit
+#         if current_speed_limit_i + 1 > len(self.speed_limits) - 1:
+#             next_speed_limit = current_speed_limit
+#             next_speed_limit_distance = self.sensor_range
+#         elif (self.speed_limit_positions[current_speed_limit_i + 1] - position
+#               > self.sensor_range):
+#             next_speed_limit = current_speed_limit
+#             next_speed_limit_distance = self.sensor_range
+#         else:
+#             next_speed_limit = self.speed_limits[current_speed_limit_i + 1]
+#             next_speed_limit_distance = self.speed_limit_positions[
+#                                           current_speed_limit_i + 1] - position
+#
+#         # if current_speed_limit_i + 2 > len(self.speed_limits) - 1:
+#         #     next2_speed_limit = next_speed_limit
+#         #     next2_speed_limit_distance = self.sensor_range
+#         # elif (self.speed_limit_positions[current_speed_limit_i + 2] - position
+#         #       > self.sensor_range):
+#         #     next2_speed_limit = next_speed_limit
+#         #     next2_speed_limit_distance = self.sensor_range
+#         # else:
+#         #     next2_speed_limit = self.speed_limits[current_speed_limit_i + 2]
+#         #     next2_speed_limit_distance = self.speed_limit_positions[
+#         #                                      current_speed_limit_i + 2] - position
+#         # future_speed_limits = [next_speed_limit, next2_speed_limit]
+#         # future_speed_limit_distances = [
+#         #     next_speed_limit_distance, next2_speed_limit_distance
+#         # ]
+#         future_speed_limits = next_speed_limit
+#         future_speed_limit_distances = next_speed_limit_distance
+#         return (current_speed_limit, future_speed_limits,
+#                 future_speed_limit_distances)
+#
+#     def get_reward(self):
+#         """
+#         Calculate the reward for this time step.
+#         Requires current limits, velocity, acceleration, jerk, time.
+#         Get predicted energy rate (power) from car data.
+#         Use negative energy as reward.
+#         Use negative jerk as reward (scaled).
+#         Use velocity as reward (scaled).
+#         Use a shock penalty as reward.
+#         :return: reward
+#         """
+#         target_speed = 0
+#         # calc forward or velocity reward
+#
+#         # if self.time < 161:
+#         #   target_speed = self.Speed[self.time]
+#         #   reward_forward = abs(self.velocity - target_speed) / (1 +
+#         #                         abs(self.velocity - target_speed))
+#         # else:
+#         #   reward_forward = 0
+#
+#         if self.future_speed_limits > 0:
+#           reward_forward = abs(self.velocity-self.future_speed_limits) / self.future_speed_limits
+#         else:
+#           reward_forward = abs(self.velocity - self.future_speed_limits) / (1 +
+#                                 abs(self.velocity - self.future_speed_limits))
+#         # calc distance reward
+#         # reward_distance = abs(self.position - self.target) / self.target
+#         # calc energy reward
+#         # if self.velocity >= 0:
+#         #   reward_energy = self.traction_power
+#         #   energy_max = self.Calc_Max_traction_F() * self.velocity
+#         #   reward_energy /= energy_max
+#         # else:
+#         reward_energy = (self.velocity / self.speed_limits[0])**4 * max(0, self.action_clipped)
+#         # reward_energy = 0
+#         # print("reward_energy:", reward_energy
+#
+#         # print("reward_energy:", reward_energy
+#
+#         # calc jerk reward
+#         # reward_jerk = 1 if self.acceleration * self.prev_acceleration < 0 else 0
+#         reward_jerk = 0
+#
+#         # calc shock reward
+#         reward_shock = 1 if self.velocity > self.current_speed_limit else 0
+#
+#         # print(f"reward_forward: {reward_forward}")
+#         # print(f"reward_energy: {reward_energy}")
+#         # print(f"reward_jerk: {reward_jerk}")
+#         # print(f"reward_shock: {reward_shock}")
+#
+#         # print("reward_stop:", reward_stop
+#
+#         reward_list = [
+#             -reward_forward, -reward_energy, -reward_jerk, -reward_shock]
+#         # print("reward_list:", reward_list)
+#         return reward_list
+#
+#     def Calc_Max_traction_F(self):
+#         """
+#         Calculate the traction force based on the speed in m/s.
+#
+#         Parameters:
+#         - speed (float): Speed in km/h
+#
+#         Returns:
+#         - float: Traction force in kN
+#         """
+#         speed = self.velocity * 3.6  # Convert speed from m/s to km/h
+#         f_t = 263.9  # Initial traction force value in kN (acceleration phase)
+#         p_max = f_t * 43 / 3.6  # Maximum power during acceleration in kW
+#
+#         # If power exceeds the maximum power limit, then limit the traction force
+#         if speed > 0:
+#           if (f_t * speed / 3.6) > p_max:
+#               f_t = p_max / (speed / 3.6)
+#
+#           # Additional condition to limit the traction force
+#           if f_t > (263.9 * 43 * 50 / (speed ** 2)):
+#               f_t = 263.9 * 43 * 50 / (speed ** 2)
+#         if speed == 0:
+#             f_t = 263.9  # Set traction force to initial value if speed is 0
+#
+#         return f_t
+#
+#     def Calc_Max_braking_F(self):
+#         """
+#         Calculate the braking force based on the speed.
+#
+#         Parameters:
+#         - speed (float): Speed in km/h
+#
+#         Returns:
+#         - float: Braking force in kN
+#         """
+#
+#         speed = self.velocity * 3.6  # Convert speed from m/s to km/h
+#         if speed <= 0:
+#             f_b = 200
+#         else:
+#             if speed > 0 and speed <= 5:
+#                 f_b = 200
+#             elif speed > 5 and speed <= 48.5:
+#                 f_b = 389
+#             elif speed > 48.5 and speed <= 80:
+#                 f_b = 913962.5 / (speed ** 2)
+#             else:
+#                 f_b = 200  # Assumes no braking force calculation outside specified range
+#
+#         # Apply a final modification factor to the braking force
+#         # f_b = 0.8 * f_b
+#
+#         return f_b
+#
+#     def Calc_Resistance(self):
+#         """
+#         Calculate the basic resistance of a train running at a given speed.
+#
+#         :param speed: Speed of the train in km/h
+#         :return: Basic resistance in kN
+#         """
+#         n = 24  # Number of axles
+#         N = 6  # Number of cars
+#         A = 10.64  # Cross-sectional area of the train in m^2
+#         speed = self.velocity * 3.6  # Convert speed from m/s to km/h
+#
+#         f_r = (6.4 * self.Mass + 130 * n + 0.14 * self.Mass * abs(speed) +
+#               (0.046 + 0.0065 * (N - 1)) * A * speed**2) / 1000
+#         # f_r = 0.1 * f_r
+#         return f_r
+#
+#
+#     def render(self):
+#         pass
+
+
+
+
+# env = TrainSpeedControl()
 
-class TrainSpeedControl(Env):
-    def __init__(self):
-        self.dt = 1  # in s
-        self.sensor_range = 300.0  # in m
-
-        self.Mass = 300.0  # in Ton
-        self.position = 0.0  # in m; track is 1-dim, only one coord is needed
-        self.velocity = 0.0  # in m/s
-        self.acceleration = 0.0  # in m/s**2
-        self.prev_acceleration = 0.0  # in m/s**2
-        self.Max_traction_F = 0.0  # in kN
-        self.traction_power = 0.0  # in kW
-        self.action_clipped = 0.0  # in m/s**2
-        self.jerk = 0.0  # in m/s**3
-        self.prev_action = 0.0  # [-1,1]
-
-        self.time = 0.0  # in s
-        self.total_energy_kWh = 0.0  # in Wh
-        self.reward = 0.0
-
-        self.reward_weights = [1.0, 0.5, 0.0, 1.0]
-        self.energy_factor = 1.0
-        # self.friction_deceleration = 0.02
-
-        self.track_length = 100000.0
-        self.target = 2000.0
-        self.speed_limit_positions = [0.0, self.target]
-        self.speed_limits = [20.0, 0.0]
-        self.speed_final = 0.0
-        self.running_time = 170.0
-
-
-        self.Time = TimeSpeed[0]
-        self.Speed = TimeSpeed[1]
-
-        self.terminated = False
-        self.truncated = False
-        self.done = False
-        self.episode_count = 0
-        self.reroll_frequency = 10
-
-        (self.current_speed_limit, self.future_speed_limits,
-         self.future_speed_limit_distances) = self.sensor(self.position)
-
-        self.specs = {
-            'mass': 1000,
-            'frontal_area': 2.38,
-            'cW': 0.29,
-            'acceleration_limits': [-1, 1],
-            'velocity_limits': [-1, 100],
-            'power_limits': [-50, 75],
-            'track_length': [0, 2500]
-        }
-
-        """
-        # Meaning of state features
-        # 1. Train's current positon
-        # 2. Train's current velocity
-        # 3. Current speed limit
-        # 4. Next speed limit
-        # 5. Distance to next speed limit
-        """
-
-        # self.state_max = np.hstack(
-        #     (self.specs['velocity_limits'][1],
-        #      self.specs['acceleration_limits'][1],
-        #      self.specs['velocity_limits'][1],
-        #      self.specs['velocity_limits'][1],
-        #      self.specs['track_length'][1]))
-
-        # self.state_min = np.hstack(
-        #     (self.specs['velocity_limits'][0],
-        #      self.specs['acceleration_limits'][0],
-        #      self.specs['velocity_limits'][0],
-        #      self.specs['velocity_limits'][0],
-        #      self.specs['track_length'][0],))
-        self.state_max = np.hstack(
-              ( self.specs['track_length'][1],
-                self.specs['velocity_limits'][1],
-                self.specs['velocity_limits'][1],
-                self.specs['velocity_limits'][1] * np.ones(1),
-                self.sensor_range * np.ones(1)))
-
-        self.state_min = np.hstack(
-              ( self.specs['track_length'][0],
-                self.specs['velocity_limits'][0],
-                self.specs['velocity_limits'][0],
-                self.specs['velocity_limits'][0] * np.ones(1),
-                np.zeros(1)))
-
-        self.action_space = Box(low=-1.0,
-                                high=1.0,
-                                shape=(1,),
-                                dtype=np.float32)
-
-        self.observation_space = Box(low=self.state_min,
-                                     high=self.state_max,
-                                     dtype=np.float64)
-
-    def step(self, action):
-        """
-        Take one 10Hz step:
-        Update time, position, velocity, jerk, limits.
-        Check if episode is done.
-        Get reward.
-        :param action: float within (-1, 1)
-        :return: state, reward, done, info
-        """
-
-        assert self.action_space.contains(action), \
-            f'{action} ({type(action)}) invalid shape or bounds'
-
-        self.action_clipped = np.clip(action, -1, 1)[0]
-        # print("velocity:", self.velocity)
-        # print("positon:", self.position)
-        self.update_motion(self.action_clipped)
-
-
-        # s = 0.5 * a * t² + v0 * t + s0
-        # self.position += (0.5 * self.acceleration * self.dt ** 2 +
-        #                   self.velocity * self.dt)
-        # # v = a * t + v0
-        # self.velocity += self.acceleration * self.dt
-
-        # Update speed limit
-        (self.current_speed_limit, self.future_speed_limits,
-         self.future_speed_limit_distances) = self.sensor(self.position)
-
-        # Update others
-        self.time += self.dt
-        # self.jerk = abs(action_clipped - self.prev_action)
-        # self.prev_action = self.action_clipped
-
-        # Judge terminated condition
-        self.terminated = bool(self.position >= self.track_length or self.time > self.running_time + 1)
-        if self.terminated:
-          self.episode_count += 1
-
-        self.truncated = False
-
-        # Calculate reward
-        reward_list = self.get_reward()
-        # print("reward_list:", reward_list)
-        self.reward = np.array(reward_list).dot(np.array(self.reward_weights))
-
-        if self.time == self.running_time:
-          self.reward -= (self.velocity - self.speed_final)**2 + (self.position - self.target)**2
-
-        self.prev_acceleration = self.acceleration
-
-        # Update info
-        info = {
-            'position': self.position,
-            'velocity': self.velocity,
-            'acceleration': self.acceleration,
-            'jerk': self.jerk,
-            'time': self.time,
-            'power': self.traction_power,
-            'reward': self.reward,
-            'action': self.action_clipped
-        }
-
-        # Update state
-        # state = self.feature_scaling(self.get_state())
-        state = np.hstack([self.position, self.velocity, self.current_speed_limit,
-                          self.future_speed_limits, self.future_speed_limit_distances])
-
-        return state, self.reward, self.terminated, self.truncated, info
-
-    def reset(
-            self,
-            *,
-            seed: int | None = None,
-            options: dict[str, Any] | None = None,
-    ):
-        self.position = 0.0  # in m; track is 1-dim, only one coord is needed
-        self.velocity = 0.0  # in m/s
-        self.acceleration = 0.0  # in m/s**2
-        self.prev_acceleration = 0.0  # in m/s**2
-        self.Max_traction_F = 0.0  # in kN
-        self.jerk = 0.0  # in m/s**3
-        self.time = 0.0  # in s
-        self.total_energy_kWh = 0.0  # in Wh
-        self.terminated = False
-        self.truncated = False
-        self.current_speed_limit = 0.0
-        self.future_speed_limits = 0.0
-        self.future_speed_limit_distances = 0.0
-        self.action_clipped = 0.0  # in m/s**
-        self.traction_power = 0.0
-        # if self.episode_count % self.reroll_frequency == 0:
-        #     second_limit_position = np.random.uniform(500, 1000)
-        #     self.speed_limit_positions = [0.0, second_limit_position, 1800]
-        #     self.speed_limits = np.append(np.random.randint(5, 21, size=2), 0.0)
-
-        # Update to call sensor method to initialize speed limits correctly
-        (self.current_speed_limit, self.future_speed_limits, self.future_speed_limit_distances) = self.sensor(self.position)
-        # print("current_speed_limit:", self.current_speed_limit)
-        info = {
-            'position': self.position,
-            'velocity': self.velocity,
-            'acceleration': self.acceleration,
-            'jerk': self.jerk,
-            'time': self.time,
-            'power': self.traction_power,
-            'reward': self.reward,
-            'action': self.action_clipped
-        }
-
-
-        # state = self.feature_scaling(self.get_state
-        state = np.hstack([self.position, self.velocity, self.current_speed_limit,
-                           self.future_speed_limits, self.future_speed_limit_distances])
-        return state, info
-
-
-    def update_motion(self, action_clipped):
-        resistance = self.Calc_Resistance()
-        # print("resistance:", resistance)
-        if self.velocity > 0:
-            if action_clipped >= 0:
-                force = action_clipped * self.Calc_Max_traction_F()
-                # print("force1:", force)
-                self.traction_power = force * self.velocity
-            else:
-                force = action_clipped * self.Calc_Max_braking_F()
-                # print("force2:", force)
-                self.traction_power = 0.0
-
-            self.acceleration = (force - resistance) / self.Mass
-            # Prevent reversing if velocity might turn negative
-            if self.velocity + self.acceleration * self.dt < 0:
-                self.acceleration = -self.velocity / self.dt
-
-        elif self.velocity == 0:
-            if action_clipped > 0:
-                force = action_clipped * self.Calc_Max_traction_F()
-                # print("force3:", force)
-
-            else:
-                force = 0
-                # print("force4:", force)
-
-            self.acceleration = max(0, (force - resistance) / self.Mass)
-            self.traction_power = 0  # No power since velocity is 0 at this step
-
-        # Update position and velocity using kinematic equations
-        self.position += (0.5 * self.acceleration * self.dt ** 2 + self.velocity * self.dt)
-        self.velocity += self.acceleration * self.dt
-
-
-
-    def sensor(self, position):
-    # Treat negative positions as 0
-        if position < 0:
-            position = 0
-
-        current_speed_limit = 0.0
-        current_speed_limit_i = 0
-        next_speed_limit = 0.0
-        next_speed_limit_distance = 0.0
-          #next2_speed_limit = 0.0
-          #next2_speed_limit_distance = 0.0
-
-          # Determine the current speed limit
-        for i, (pos, sl) in enumerate(
-                zip(self.speed_limit_positions, self.speed_limits)):
-          if pos <= position:
-                current_speed_limit = sl
-                current_speed_limit_i = i
-
-        # Determine the current speed limit
-        if current_speed_limit_i + 1 > len(self.speed_limits) - 1:
-            next_speed_limit = current_speed_limit
-            next_speed_limit_distance = self.sensor_range
-        elif (self.speed_limit_positions[current_speed_limit_i + 1] - position
-              > self.sensor_range):
-            next_speed_limit = current_speed_limit
-            next_speed_limit_distance = self.sensor_range
-        else:
-            next_speed_limit = self.speed_limits[current_speed_limit_i + 1]
-            next_speed_limit_distance = self.speed_limit_positions[
-                                          current_speed_limit_i + 1] - position
-
-        # if current_speed_limit_i + 2 > len(self.speed_limits) - 1:
-        #     next2_speed_limit = next_speed_limit
-        #     next2_speed_limit_distance = self.sensor_range
-        # elif (self.speed_limit_positions[current_speed_limit_i + 2] - position
-        #       > self.sensor_range):
-        #     next2_speed_limit = next_speed_limit
-        #     next2_speed_limit_distance = self.sensor_range
-        # else:
-        #     next2_speed_limit = self.speed_limits[current_speed_limit_i + 2]
-        #     next2_speed_limit_distance = self.speed_limit_positions[
-        #                                      current_speed_limit_i + 2] - position
-        # future_speed_limits = [next_speed_limit, next2_speed_limit]
-        # future_speed_limit_distances = [
-        #     next_speed_limit_distance, next2_speed_limit_distance
-        # ]
-        future_speed_limits = next_speed_limit
-        future_speed_limit_distances = next_speed_limit_distance
-        return (current_speed_limit, future_speed_limits,
-                future_speed_limit_distances)
-
-    def get_reward(self):
-        """
-        Calculate the reward for this time step.
-        Requires current limits, velocity, acceleration, jerk, time.
-        Get predicted energy rate (power) from car data.
-        Use negative energy as reward.
-        Use negative jerk as reward (scaled).
-        Use velocity as reward (scaled).
-        Use a shock penalty as reward.
-        :return: reward
-        """
-        target_speed = 0
-        # calc forward or velocity reward
-
-        # if self.time < 161:
-        #   target_speed = self.Speed[self.time]
-        #   reward_forward = abs(self.velocity - target_speed) / (1 +
-        #                         abs(self.velocity - target_speed))
-        # else:
-        #   reward_forward = 0
-
-        if self.future_speed_limits > 0:
-          reward_forward = abs(self.velocity-self.future_speed_limits) / self.future_speed_limits
-        else:
-          reward_forward = abs(self.velocity - self.future_speed_limits) / (1 +
-                                abs(self.velocity - self.future_speed_limits))
-        # calc distance reward
-        # reward_distance = abs(self.position - self.target) / self.target
-        # calc energy reward
-        # if self.velocity >= 0:
-        #   reward_energy = self.traction_power
-        #   energy_max = self.Calc_Max_traction_F() * self.velocity
-        #   reward_energy /= energy_max
-        # else:
-        reward_energy = (self.velocity / self.speed_limits[0])**4 * max(0, self.action_clipped)
-        # reward_energy = 0
-        # print("reward_energy:", reward_energy
-
-        # print("reward_energy:", reward_energy
-
-        # calc jerk reward
-        # reward_jerk = 1 if self.acceleration * self.prev_acceleration < 0 else 0
-        reward_jerk = 0
-
-        # calc shock reward
-        reward_shock = 1 if self.velocity > self.current_speed_limit else 0
-
-        # print(f"reward_forward: {reward_forward}")
-        # print(f"reward_energy: {reward_energy}")
-        # print(f"reward_jerk: {reward_jerk}")
-        # print(f"reward_shock: {reward_shock}")
-
-        # print("reward_stop:", reward_stop
-
-        reward_list = [
-            -reward_forward, -reward_energy, -reward_jerk, -reward_shock]
-        # print("reward_list:", reward_list)
-        return reward_list
-
-    def Calc_Max_traction_F(self):
-        """
-        Calculate the traction force based on the speed in m/s.
-
-        Parameters:
-        - speed (float): Speed in km/h
-
-        Returns:
-        - float: Traction force in kN
-        """
-        speed = self.velocity * 3.6  # Convert speed from m/s to km/h
-        f_t = 263.9  # Initial traction force value in kN (acceleration phase)
-        p_max = f_t * 43 / 3.6  # Maximum power during acceleration in kW
-
-        # If power exceeds the maximum power limit, then limit the traction force
-        if speed > 0:
-          if (f_t * speed / 3.6) > p_max:
-              f_t = p_max / (speed / 3.6)
-
-          # Additional condition to limit the traction force
-          if f_t > (263.9 * 43 * 50 / (speed ** 2)):
-              f_t = 263.9 * 43 * 50 / (speed ** 2)
-        if speed == 0:
-            f_t = 263.9  # Set traction force to initial value if speed is 0
-
-        return f_t
-
-    def Calc_Max_braking_F(self):
-        """
-        Calculate the braking force based on the speed.
-
-        Parameters:
-        - speed (float): Speed in km/h
-
-        Returns:
-        - float: Braking force in kN
-        """
-
-        speed = self.velocity * 3.6  # Convert speed from m/s to km/h
-        if speed <= 0:
-            f_b = 200
-        else:
-            if speed > 0 and speed <= 5:
-                f_b = 200
-            elif speed > 5 and speed <= 48.5:
-                f_b = 389
-            elif speed > 48.5 and speed <= 80:
-                f_b = 913962.5 / (speed ** 2)
-            else:
-                f_b = 200  # Assumes no braking force calculation outside specified range
-
-        # Apply a final modification factor to the braking force
-        # f_b = 0.8 * f_b
-
-        return f_b
-
-    def Calc_Resistance(self):
-        """
-        Calculate the basic resistance of a train running at a given speed.
-
-        :param speed: Speed of the train in km/h
-        :return: Basic resistance in kN
-        """
-        n = 24  # Number of axles
-        N = 6  # Number of cars
-        A = 10.64  # Cross-sectional area of the train in m^2
-        speed = self.velocity * 3.6  # Convert speed from m/s to km/h
-
-        f_r = (6.4 * self.Mass + 130 * n + 0.14 * self.Mass * abs(speed) +
-              (0.046 + 0.0065 * (N - 1)) * A * speed**2) / 1000
-        # f_r = 0.1 * f_r
-        return f_r
-
-
-    def render(self):
-        pass
-
-
-
-
-env = TrainSpeedControl()
-# check_env(env, warn=True)
-log_path = os.path.join('Training', 'Logs')
-checkpoint_path = os.path.join('Training', 'Saved Models')
-
-# Create checkpoint callback
-checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=checkpoint_path,
-                                         name_prefix='SAC_model')
-
-model = SAC("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
-model.learn(total_timesteps=10, callback=checkpoint_callback)
 
 
