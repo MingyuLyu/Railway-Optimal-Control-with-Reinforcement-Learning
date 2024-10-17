@@ -55,7 +55,9 @@ def train_on_policy_agent(env, agent, num_episodes):
 
 def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size, batch_size):
     return_list = []
-    for i in range(10):
+    print("Starting training loop...")
+    for i in range(100):
+        print(f"Starting episode {i}...")
         with tqdm(total=int(num_episodes/10), desc='Iteration %d' % i) as pbar:
             for i_episode in range(int(num_episodes/10)):
                 episode_return = 0
@@ -67,9 +69,9 @@ def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size
                 while not done:
                     # print("state: ", state, type(state))
                     action = agent.take_action(state)
-                    # print("Action taken:", action)
+                    print("Action taken:", action)
                     next_state, reward, done, truncated, info = env.step(action)
-                    # print('next state:', next_state, 'reward:', reward, 'done:', done)
+                    print('next state:', next_state, 'reward:', reward, 'done:', done)
                     replay_buffer.add(state, action, reward, next_state, done)
                     state = next_state
                     episode_return += reward
@@ -81,6 +83,7 @@ def train_off_policy_agent(env, agent, num_episodes, replay_buffer, minimal_size
                 if (i_episode+1) % 10 == 0:
                     pbar.set_postfix({'episode': '%d' % (num_episodes/10 * i + i_episode+1), 'return': '%.3f' % np.mean(return_list[-10:])})
                 pbar.update(1)
+        print(f"Episode {i} completed.")
     return return_list
 
 
