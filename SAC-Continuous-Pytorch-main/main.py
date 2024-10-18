@@ -5,7 +5,7 @@ import gymnasium as gym
 import os, shutil
 import argparse
 import torch
-from ESARS import TrainSpeedControl
+from TrainEnv import TrainSpeedControl
 
 '''Hyperparameter Setting'''
 parser = argparse.ArgumentParser()
