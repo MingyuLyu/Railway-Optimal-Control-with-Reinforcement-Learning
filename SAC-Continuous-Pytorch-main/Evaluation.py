@@ -6,6 +6,7 @@ import os, shutil
 import argparse
 import torch
 from TrainEnv import TrainSpeedControl
+import matplotlib.pyplot as plt
 
 '''Hyperparameter Setting'''
 parser = argparse.ArgumentParser()
@@ -34,17 +35,9 @@ opt.dvc = torch.device(opt.dvc) # from str to torch.device
 # opt.dvc = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(opt)
 
-
-
 def main():
-    EnvName = ['Pendulum-v1','LunarLanderContinuous-v2','Humanoid-v4','HalfCheetah-v4','BipedalWalker-v3','BipedalWalkerHardcore-v3']
-    BrifEnvName = ['PV1', 'LLdV2', 'Humanv4', 'HCv4','BWv3', 'BWHv3']
-
-    # Build Env
-    # env = gym.make(EnvName[opt.EnvIdex], render_mode="human" if opt.render else None)
-    # eval_env = gym.make(EnvName[opt.EnvIdex])
     env = TrainSpeedControl()
-    eval_env = TrainSpeedControl()
+    # eval_env = TrainSpeedControl()
     opt.state_dim = env.observation_space.shape[0]
     opt.action_dim = env.action_space.shape[0]
     opt.max_action = float(env.action_space.high[0])   #remark: action space【-max,max】
@@ -60,66 +53,96 @@ def main():
     torch.backends.cudnn.benchmark = False
     print("Random Seed: {}".format(opt.seed))
 
-    # Build SummaryWriter to record training curves
-    if opt.write:
-        from torch.utils.tensorboard import SummaryWriter
-        timenow = str(datetime.now())[0:-10]
-        timenow = ' ' + timenow[0:13] + '_' + timenow[-2::]
-        writepath = 'runs/{}'.format('TrainSpeedControl') + timenow
-        if os.path.exists(writepath): shutil.rmtree(writepath)
-        writer = SummaryWriter(log_dir=writepath)
-
-
-    # Build DRL model
-    if not os.path.exists('model'): os.mkdir('model')
-    agent = SAC_countinuous(**vars(opt)) # var: transfer argparse to dictionary
+    agent = SAC_countinuous(**vars(opt))  # var: transfer argparse to dictionary
     if opt.Loadmodel: agent.load('TrainSpeedControl', opt.ModelIdex)
 
-    if opt.render:
-        while True:
-            score = evaluate_policy(env, agent, turns=1)
-            print('EnvName:', 'TrainSpeedControl', 'score:', score)
-    else:
-        total_steps = 0
-        while total_steps < opt.Max_train_steps:
-            s, info = env.reset(seed=env_seed)  # Do not use opt.seed directly, or it can overfit to opt.seed
-            env_seed += 1
-            done = False
+    s, info = env.reset(seed=env_seed)  # Do not use opt.seed directly, or it can overfit to opt.seed
+    env_seed += 1
+    done = False
 
-            '''Interact & trian'''
-            while not done:
-                if total_steps < (5*opt.max_e_steps):
-                    act = env.action_space.sample()  # act∈[-max,max]
-                    a = Action_adapter_reverse(act, opt.max_action)  # a∈[-1,1]
-                else:
-                    a = agent.select_action(s, deterministic=False)  # a∈[-1,1]
-                    act = Action_adapter(a, opt.max_action)  # act∈[-max,max]
-                s_next, r, dw, tr, info = env.step(act)  # dw: dead&win; tr: truncated
-                # r = Reward_adapter(r, opt.EnvIdex)
-                done = (dw or tr)
+    # Lists to store data for plotting
+    positions = []
+    velocities = []
+    accelerations = []
+    jerks = []
+    times = []
+    powers = []
+    rewards = []
+    actions = []
 
-                agent.replay_buffer.add(s, a, r, s_next, dw)
-                s = s_next
-                total_steps += 1
+    while not done:
+        a = agent.select_action(s, deterministic=False)
+        s_next, r, dw, tr, info = env.step(a)
+        done = (dw or tr)
 
-                '''train if it's time'''
-                # train 50 times every 50 steps rather than 1 training per step. Better!
-                if (total_steps >= 2*opt.max_e_steps) and (total_steps % opt.update_every == 0):
-                    for j in range(opt.update_every):
-                        agent.train()
+        positions.append(info['position'])
+        velocities.append(info['velocity'])
+        accelerations.append(info['acceleration'])
+        jerks.append(info['jerk'])
+        times.append(info['time'])
+        powers.append(info['power'])
+        rewards.append(info['reward'])
+        actions.append(info['action'])
 
-                '''record & log'''
-                if total_steps % opt.eval_interval == 0:
-                    ep_r = evaluate_policy(eval_env, agent, turns=3)
-                    if opt.write: writer.add_scalar('ep_r', ep_r, global_step=total_steps)
-                    print(f'EnvName:TrainSpeedControl, Steps: {int(total_steps/1000)}k, Episode Reward:{ep_r}')
+        s = s_next
+    plot_info_data(times, positions, velocities, accelerations, jerks, powers, rewards, actions)
 
-                '''save model'''
-                if total_steps % opt.save_interval == 0:
-                    agent.save('TrainSpeedControl', int(total_steps/1000))
-        env.close()
-        eval_env.close()
+def plot_info_data(times, positions, velocities, accelerations, jerks, powers, rewards, actions):
+    # Create subplots for each data type
+    plt.figure(figsize=(12, 10))
 
+    # Position
+    plt.subplot(3, 3, 1)
+    plt.plot(times, positions, label='Position')
+    plt.xlabel('Time')
+    plt.ylabel('Position')
+    plt.legend()
+
+    # Velocity
+    plt.subplot(3, 3, 2)
+    plt.plot(times, velocities, label='Velocity')
+    plt.xlabel('Time')
+    plt.ylabel('Velocity')
+    plt.legend()
+
+    # Acceleration
+    plt.subplot(3, 3, 3)
+    plt.plot(times, accelerations, label='Acceleration')
+    plt.xlabel('Time')
+    plt.ylabel('Acceleration')
+    plt.legend()
+
+    # Jerk
+    plt.subplot(3, 3, 4)
+    plt.plot(times, jerks, label='Jerk')
+    plt.xlabel('Time')
+    plt.ylabel('Jerk')
+    plt.legend()
+
+    # Power
+    plt.subplot(3, 3, 5)
+    plt.plot(times, powers, label='Power')
+    plt.xlabel('Time')
+    plt.ylabel('Power (Traction)')
+    plt.legend()
+
+    # Reward
+    plt.subplot(3, 3, 6)
+    plt.plot(times, rewards, label='Reward')
+    plt.xlabel('Time')
+    plt.ylabel('Reward')
+    plt.legend()
+
+    # Actions
+    plt.subplot(3, 3, 7)
+    plt.plot(times, actions, label='Actions')
+    plt.xlabel('Time')
+    plt.ylabel('Actions (Clipped)')
+    plt.legend()
+
+    # Show the plots
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == '__main__':
     main()
