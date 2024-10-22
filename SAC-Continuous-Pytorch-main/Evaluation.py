@@ -7,15 +7,18 @@ import argparse
 import torch
 from TrainEnv import TrainSpeedControl
 import matplotlib.pyplot as plt
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 
 '''Hyperparameter Setting'''
 parser = argparse.ArgumentParser()
-parser.add_argument('--dvc', type=str, default='cpu', help='running device: cuda or cpu')
+parser.add_argument('--dvc', type=str, default='cuda', help='running device: cuda or cpu')
 parser.add_argument('--EnvIdex', type=int, default=0, help='PV1, Lch_Cv2, Humanv4, HCv4, BWv3, BWHv3')
 parser.add_argument('--write', type=str2bool, default=False, help='Use SummaryWriter to record the training')
 parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
-parser.add_argument('--Loadmodel', type=str2bool, default=False, help='Load pretrained model or Not')
-parser.add_argument('--ModelIdex', type=int, default=100, help='which model to load')
+parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
+parser.add_argument('--ModelIdex', type=int, default=5000, help='which model to load')
 
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--Max_train_steps', type=int, default=int(5e6), help='Max training steps')
@@ -83,66 +86,20 @@ def main():
         powers.append(info['power'])
         rewards.append(info['reward'])
         actions.append(info['action'])
-
+        # print(positions)
         s = s_next
-    plot_info_data(times, positions, velocities, accelerations, jerks, powers, rewards, actions)
 
-def plot_info_data(times, positions, velocities, accelerations, jerks, powers, rewards, actions):
-    # Create subplots for each data type
-    plt.figure(figsize=(12, 10))
 
-    # Position
-    plt.subplot(3, 3, 1)
-    plt.plot(times, positions, label='Position')
-    plt.xlabel('Time')
-    plt.ylabel('Position')
-    plt.legend()
-
+    plt.plot(times, velocities, label='Velocity-Position plot')
     # Velocity
-    plt.subplot(3, 3, 2)
-    plt.plot(times, velocities, label='Velocity')
-    plt.xlabel('Time')
+    plt.xlabel('Position')
     plt.ylabel('Velocity')
+    plt.title('Velocity-Position plot')
     plt.legend()
 
-    # Acceleration
-    plt.subplot(3, 3, 3)
-    plt.plot(times, accelerations, label='Acceleration')
-    plt.xlabel('Time')
-    plt.ylabel('Acceleration')
-    plt.legend()
-
-    # Jerk
-    plt.subplot(3, 3, 4)
-    plt.plot(times, jerks, label='Jerk')
-    plt.xlabel('Time')
-    plt.ylabel('Jerk')
-    plt.legend()
-
-    # Power
-    plt.subplot(3, 3, 5)
-    plt.plot(times, powers, label='Power')
-    plt.xlabel('Time')
-    plt.ylabel('Power (Traction)')
-    plt.legend()
-
-    # Reward
-    plt.subplot(3, 3, 6)
-    plt.plot(times, rewards, label='Reward')
-    plt.xlabel('Time')
-    plt.ylabel('Reward')
-    plt.legend()
-
-    # Actions
-    plt.subplot(3, 3, 7)
-    plt.plot(times, actions, label='Actions')
-    plt.xlabel('Time')
-    plt.ylabel('Actions (Clipped)')
-    plt.legend()
-
-    # Show the plots
-    plt.tight_layout()
+    # Display the plot
     plt.show()
+
 
 if __name__ == '__main__':
     main()
