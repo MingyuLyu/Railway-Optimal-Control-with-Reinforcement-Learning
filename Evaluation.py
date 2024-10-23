@@ -35,7 +35,7 @@ parser.add_argument('--alpha', type=float, default=0.12, help='Entropy coefficie
 parser.add_argument('--adaptive_alpha', type=str2bool, default=True, help='Use adaptive_alpha or Not')
 opt = parser.parse_args()
 opt.dvc = torch.device(opt.dvc) # from str to torch.device
-# opt.dvc = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+opt.dvc = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(opt)
 
 def main():
