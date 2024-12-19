@@ -11,11 +11,11 @@ class TrainSpeedControl(Env):
         self.dt = 0.1  # Time step in seconds
         self.Mass = 300.0  # Mass in tons
         self.Max_traction_F = 0.0  # Max traction force in kN
-        self.Running_time = 120.0  # Total episode time in seconds
+        self.Running_time = 200.0  # Total episode time in seconds
 
         # Environmental parameters
         self.track_length = 2500.0  # Track length in meters
-        self.station = 2000.0
+        self.station = 1500.0
 
         # Specs (fixed properties of the environment)
         self.specs = {

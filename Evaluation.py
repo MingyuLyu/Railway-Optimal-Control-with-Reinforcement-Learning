@@ -18,7 +18,11 @@ parser.add_argument('--EnvIdex', type=int, default=0, help='PV1, Lch_Cv2, Humanv
 parser.add_argument('--write', type=str2bool, default=False, help='Use SummaryWriter to record the training')
 parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
 parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
-parser.add_argument('--ModelIdex', type=int, default=5000, help='which model to load')
+parser.add_argument('--ModelIdex', type=int, default=1400, help='which model to load')
+
+
+
+
 
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--Max_train_steps', type=int, default=int(5e6), help='Max training steps')
@@ -89,8 +93,7 @@ def main():
         # print(positions)
         s = s_next
 
-
-    plt.plot(times, velocities, label='Velocity-Position plot')
+    plt.plot(positions, velocities, label='Velocity-Position plot')
     # Velocity
     plt.xlabel('Position')
     plt.ylabel('Velocity')
