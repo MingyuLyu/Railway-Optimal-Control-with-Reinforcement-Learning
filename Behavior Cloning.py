@@ -1,10 +1,14 @@
-import pandas as pd
-import torch.nn.functional as F
-import numpy as np
+from utils import str2bool, evaluate_policy, Action_adapter, Action_adapter_reverse, Reward_adapter
 import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+import pandas as pd
+import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
+import matplotlib.pyplot as plt
 from SAC import SAC_countinuous
 import argparse
-from utils import str2bool, evaluate_policy, Action_adapter, Action_adapter_reverse, Reward_adapter
 
 '''Hyperparameter Setting'''
 parser = argparse.ArgumentParser()
@@ -33,55 +37,92 @@ opt.dvc = torch.device(opt.dvc) # from str to torch.device
 # opt.dvc = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(opt)
 
-def main():
-    agent = SAC_countinuous(**vars(opt)) # var: transfer argparse to dictionary
-    agent.load('TrainSpeedControl', opt.ModelIdex)
+# Define Behavior Cloning Function
+def train_behavior_cloning(agent, dataloader, num_epochs=50):
+    agent.actor.train()  # Set the actor to training mode
+    epoch_losses = []  # Store epoch losses for visualization
 
-
-
-def train_behavior_cloning(agent, csv_file, num_epochs=100, batch_size=64):
-    # Load expert data from CSV
-    data = pd.read_csv(csv_file, header=None)
-    states = torch.FloatTensor(data.iloc[:, :agent.state_dim].values).to(agent.dvc)
-    actions = torch.FloatTensor(data.iloc[:, agent.state_dim:].values).to(agent.dvc)
-
-    dataset = torch.utils.data.TensorDataset(states, actions)
-    data_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    # Train behavior cloning using supervised learning
     for epoch in range(num_epochs):
-        for batch_states, batch_actions in data_loader:
-            predicted_actions, _ = agent.actor(batch_states, deterministic=True, with_logprob=False)
-            loss = F.mse_loss(predicted_actions, batch_actions)
+        batch_losses = []
+        for states, actions in dataloader:
+            # Forward pass: Predict actions
+            predicted_actions, _ = agent.actor(states, deterministic=True, with_logprob=False)
 
+            # Compute behavior cloning loss (MSE)
+            loss = F.mse_loss(predicted_actions, actions)
+
+            # Backward pass: Update model parameters
             agent.actor_optimizer.zero_grad()
             loss.backward()
             agent.actor_optimizer.step()
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item()}")
+            batch_losses.append(loss.item())
 
-    print("Behavior cloning training completed")
+        # Record and print loss for the epoch
+        epoch_loss = np.mean(batch_losses)
+        epoch_losses.append(epoch_loss)
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
 
+    return epoch_losses
 
-def pretrain_bc(self, expert_loader, pretrain_epochs):
-    self.actor.train()  # Put actor in training mode
+# Evaluate Behavior Cloning Model
+def evaluate_behavior_cloning(agent, dataloader):
+    agent.actor.eval()  # Set the actor to evaluation mode
+    total_loss = 0
 
-    for epoch in range(pretrain_epochs):
-        for expert_batch in expert_loader:
-            expert_states, expert_actions = expert_batch
+    with torch.no_grad():
+        for states, actions in dataloader:
+            # Predict actions
+            predicted_actions, _ = agent.actor(states, deterministic=True, with_logprob=False)
 
-            # Get the predicted actions from the actor
-            predicted_actions, _ = self.actor(expert_states, deterministic=True, with_logprob=False)
+            # Compute loss
+            loss = F.mse_loss(predicted_actions, actions)
+            total_loss += loss.item()
 
-            # Compute behavior cloning loss (MSE between expert and predicted actions)
-            bc_loss = F.mse_loss(predicted_actions, expert_actions)
+    return total_loss / len(dataloader)
 
-            # Update actor using the behavior cloning loss
-            self.actor_optimizer.zero_grad()
-            bc_loss.backward()
-            self.actor_optimizer.step()
+# Main Script
+def main():
+    # Configuration
+    state_dim = 4  # Number of state features
+    action_dim = 2  # Number of action features
+    hidden_dim = 128  # Hidden layer size
+    batch_size = 64
+    num_epochs = 50
+    learning_rate = 1e-3
+    expert_data_file = "expert_data.csv"  # Path to your expert data
 
-        # Optional: Print loss or save model after each epoch
-        print(f'Epoch {epoch + 1}/{pretrain_epochs}, BC Loss: {bc_loss.item()}')
+    # Load Expert Data
+    data = pd.read_csv(expert_data_file, header=None)
+    states = torch.FloatTensor(data.iloc[:, :state_dim].values)
+    actions = torch.FloatTensor(data.iloc[:, state_dim:].values)
 
-    print("Pretraining complete.")
+    # Create DataLoader
+    dataset = TensorDataset(states, actions)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Initialize SAC Agent
+    agent = SAC_countinuous(state_dim=state_dim, action_dim=action_dim, net_width=hidden_dim, a_lr=learning_rate, c_lr=learning_rate, dvc=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    # Train Behavior Cloning Model
+    print("Training Behavior Cloning Model...")
+    epoch_losses = train_behavior_cloning(agent, dataloader, num_epochs)
+
+    # Evaluate the Model
+    print("Evaluating Behavior Cloning Model...")
+    eval_loss = evaluate_behavior_cloning(agent, dataloader)
+    print(f"Evaluation Loss: {eval_loss:.4f}")
+
+    # Save the Model
+    torch.save(agent.actor.state_dict(), "bc_actor.pth")
+    print("Behavior Cloning Model saved to 'bc_actor.pth'.")
+
+    # Plot Training Loss
+    plt.plot(epoch_losses)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Behavior Cloning Training Loss")
+    plt.show()
+
+if __name__ == "__main__":
+    main()
