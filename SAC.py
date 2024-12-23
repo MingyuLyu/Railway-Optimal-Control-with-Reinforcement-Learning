@@ -88,7 +88,11 @@ class SAC_countinuous():
 		torch.save(self.q_critic.state_dict(), "./model/{}_q_critic{}.pth".format(EnvName,timestep))
 
 	def load(self,EnvName, timestep):
-		self.actor.load_state_dict(torch.load("./model/{}_actor{}.pth".format(EnvName, timestep), map_location=self.dvc))
+		# self.actor.load_state_dict(torch.load("./model/{}_actor{}.pth".format(EnvName, timestep), map_location=self.dvc))
+		self.actor.load_state_dict(torch.load(
+			r"C:\Users\lyumi\Documents\GitHub\Railway-Optimal-Control-with-Reinforcement-Learning\bc_actor.pth",
+			map_location=self.dvc))
+
 		self.q_critic.load_state_dict(torch.load("./model/{}_q_critic{}.pth".format(EnvName, timestep), map_location=self.dvc))
 
 
@@ -104,6 +108,13 @@ class ReplayBuffer():
 		self.r = torch.zeros((max_size, 1) ,dtype=torch.float,device=self.dvc)
 		self.s_next = torch.zeros((max_size, state_dim) ,dtype=torch.float,device=self.dvc)
 		self.dw = torch.zeros((max_size, 1) ,dtype=torch.bool,device=self.dvc)
+
+		# # Separate buffer for expert data
+		# self.expert_s = []
+		# self.expert_a = []
+		# self.expert_r = []
+		# self.expert_s_next = []
+		# self.expert_dw = []
 
 	def add(self, s, a, r, s_next, dw):
 		#每次只放入一个时刻的数据

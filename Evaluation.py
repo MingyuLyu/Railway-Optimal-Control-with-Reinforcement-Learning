@@ -8,6 +8,7 @@ import torch
 from TrainEnv import TrainSpeedControl
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
@@ -76,12 +77,18 @@ def main():
     powers = []
     rewards = []
     actions = []
+    total_reward = 0
 
     while not done:
         a = agent.select_action(s, deterministic=False)
         s_next, r, dw, tr, info = env.step(a)
         done = (dw or tr)
-
+        if dw:
+            print("Episode terminated due to terminal state.")
+        elif tr:
+            print("Episode truncated due to external constraints (e.g., time limit).")
+        # Update total reward
+        total_reward += r
         positions.append(info['position'])
         velocities.append(info['velocity'])
         accelerations.append(info['acceleration'])
@@ -93,6 +100,7 @@ def main():
         # print(positions)
         s = s_next
 
+    print("Total reward for the episode:", total_reward)
     plt.plot(positions, velocities, label='Velocity-Position plot')
     # Velocity
     plt.xlabel('Position')
