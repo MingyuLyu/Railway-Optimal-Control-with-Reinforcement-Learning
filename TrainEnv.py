@@ -8,11 +8,11 @@ import random
 class TrainSpeedControl(Env):
     def __init__(self):
         # Fixed parameters
-        self.dt = 0.1  # Time step in seconds
+        self.dt = 1.0  # Time step in seconds
         self.Mass = 300.0  # Mass in tons
         self.Max_traction_F = 0.0  # Max traction force in kN
-        self.Episode_time = 300.0  # Total episode time in seconds
-        self.Running_time = 200.0
+        self.Episode_time = 200.0  # Total episode time in seconds
+        self.Running_time = 120.0
 
         # Environmental parameters
         self.track_length = 2500.0  # Track length in meters
@@ -49,7 +49,7 @@ class TrainSpeedControl(Env):
         self.observation_space = Box(low=self.state_min, high=self.state_max, dtype=np.float64)
 
         # Reward structure (fixed)
-        self.reward_weights = [1.0, 0.5, 0.0, 0.0, 1.0]
+        self.reward_weights = [1.0, 0.1, 0.3, 0.0, 1.0]
         self.energy_factor = 1.0
 
         # Max episode steps derived from Episode time and dt
@@ -73,7 +73,7 @@ class TrainSpeedControl(Env):
         self.position = 0.0  # Starting position in meters
         self.distance_left = self.station  # Reset distance left to full track length
         self.velocity = 0.0  # Initial velocity in m/s
-        self.speed_limit = 20.0  # Initial speed limit (can be randomized later if needed)
+        self.speed_limit = 33.34  # Initial speed limit (can be randomized later if needed)
         self.acceleration = 0.0  # Initial acceleration in m/s^2
         self.prev_acceleration = 0.0  # Previous acceleration in m/s^2
         self.traction_power = 0.0  # Traction power in kW
@@ -134,7 +134,7 @@ class TrainSpeedControl(Env):
 
         self.action_clipped = np.clip(action, -1, 1)[0]
         # self.action_clipped = 1.0
-        # if self.time < 80:
+        # if self.time < 75:
         #     self.action_clipped = 1.0
         # else:
         #     self.action_clipped = -1.0
@@ -152,9 +152,9 @@ class TrainSpeedControl(Env):
 
         # Update others
         self.time += self.dt
-        self.time_left = self.Running_time - self.time
+        self.time_left = max(self.Running_time - self.time, 0)
 
-        self.distance_left = self.station - self.position
+        self.distance_left = max(self.station - self.position, 0)
         # self.jerk = abs(action_clipped - self.prev_action)
         # self.prev_action = self.action_clipped
 
@@ -164,7 +164,7 @@ class TrainSpeedControl(Env):
             self.speed_limit = 33.34
 
         # Judge terminated condition
-        self.terminated = bool(self.position >= self.station and self.velocity < 5)
+        self.terminated = bool(self.Running_time - 20 < self.time < self.Running_time + 20 and self.station - 20 < self.position < self.station + 20 and self.velocity < 1)
 
 
         self.truncated = bool(self.position >= self.track_length or self.time > self.Episode_time)
@@ -175,17 +175,16 @@ class TrainSpeedControl(Env):
         # print("reward_list:", reward_list)
         self.reward = np.array(reward_list).dot(np.array(self.reward_weights))
 
-        if self.terminated:
+        if self.terminated or self.truncated:
             self.episode_count += 1
-            self.reward += 1000
-        else:
-            self.reward += 0
 
-        if self.truncated:
-            self.episode_count += 1
+        if self.time == self.Running_time:
+            self.reward -= (self.velocity) * 10
+
+        if self.terminated:
+            self.reward += 1000
+        elif self.truncated:
             self.reward -= 1000
-        else:
-            self.reward -= 0
 
         self.prev_acceleration = self.acceleration
 
@@ -262,7 +261,14 @@ class TrainSpeedControl(Env):
         reward_time = 1 if self.position < self.station else 0
 
         # calc energy reward
-        reward_energy = self.action_clipped if self.action_clipped > 0 else 0
+        if self.speed_limit == 0:
+            reward_energy = 0
+        else:
+            # Compute reward_energy safely
+            if self.action_clipped > 0:
+                reward_energy = self.action_clipped * (self.velocity / self.speed_limit) ** 4
+            else:
+                reward_energy = 0
 
         # calc jerk reward
         reward_jerk = 1 if self.acceleration * self.prev_acceleration < 0 else 0
