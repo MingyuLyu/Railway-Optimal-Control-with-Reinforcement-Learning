@@ -119,6 +119,14 @@ def main():
     plt.title('Velocity-Time plot')
     plt.legend()
     plt.grid(True)  # Add grid
+
+    plt.figure(2)
+    plt.plot(times, actions, label='Velocity-Time plot')
+    plt.xlabel('Time')
+    plt.ylabel('Action')
+    plt.title('Action-Time plot')
+    plt.legend()
+    plt.grid(True)  # Add grid
     plt.show()
 
 

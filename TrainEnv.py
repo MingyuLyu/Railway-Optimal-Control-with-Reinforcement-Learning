@@ -49,7 +49,7 @@ class TrainSpeedControl(Env):
         self.observation_space = Box(low=self.state_min, high=self.state_max, dtype=np.float64)
 
         # Reward structure (fixed)
-        self.reward_weights = [1.0, 0.1, 0.3, 0.0, 1.0]
+        self.reward_weights = [1.0, 0.0, 0.3, 0.0, 1.0]
         self.energy_factor = 1.0
 
         # Max episode steps derived from Episode time and dt
@@ -169,7 +169,6 @@ class TrainSpeedControl(Env):
 
         self.truncated = bool(self.position >= self.track_length or self.time > self.Episode_time)
 
-
         # Calculate reward
         reward_list = self.get_reward()
         # print("reward_list:", reward_list)
@@ -177,9 +176,9 @@ class TrainSpeedControl(Env):
 
         if self.terminated or self.truncated:
             self.episode_count += 1
-
-        if self.time == self.Running_time:
-            self.reward -= (self.velocity) * 10
+            # self.reward -= self.velocity * 10
+            # self.reward -= abs(self.time - self.Running_time)
+            # self.reward -= abs(self.position - self.station)
 
         if self.terminated:
             self.reward += 1000
@@ -243,16 +242,7 @@ class TrainSpeedControl(Env):
         self.velocity += self.acceleration * self.dt
 
     def get_reward(self):
-        """
-        Calculate the reward for this time step.
-        Requires current limits, velocity, acceleration, jerk, time.
-        Get predicted energy rate (power) from car data.
-        Use negative energy as reward.
-        Use negative jerk as reward (scaled).
-        Use velocity as reward (scaled).
-        Use a shock penalty as reward.
-        :return: reward
-        """
+
         # calc forward or velocity reward
         reward_forward = abs(self.position - self.station) / self.station
 
