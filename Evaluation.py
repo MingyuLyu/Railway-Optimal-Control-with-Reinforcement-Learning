@@ -8,6 +8,7 @@ import torch
 from TrainEnv import TrainSpeedControl
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
@@ -18,7 +19,11 @@ parser.add_argument('--EnvIdex', type=int, default=0, help='PV1, Lch_Cv2, Humanv
 parser.add_argument('--write', type=str2bool, default=False, help='Use SummaryWriter to record the training')
 parser.add_argument('--render', type=str2bool, default=False, help='Render or Not')
 parser.add_argument('--Loadmodel', type=str2bool, default=True, help='Load pretrained model or Not')
-parser.add_argument('--ModelIdex', type=int, default=5000, help='which model to load')
+parser.add_argument('--ModelIdex', type=int, default=1400, help='which model to load')
+
+
+
+
 
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--Max_train_steps', type=int, default=int(5e6), help='Max training steps')
@@ -72,12 +77,18 @@ def main():
     powers = []
     rewards = []
     actions = []
+    total_reward = 0
 
     while not done:
         a = agent.select_action(s, deterministic=False)
         s_next, r, dw, tr, info = env.step(a)
         done = (dw or tr)
-
+        if dw:
+            print("Episode terminated due to terminal state.")
+        elif tr:
+            print("Episode truncated due to external constraints (e.g., time limit).")
+        # Update total reward
+        total_reward += r
         positions.append(info['position'])
         velocities.append(info['velocity'])
         accelerations.append(info['acceleration'])
@@ -89,15 +100,33 @@ def main():
         # print(positions)
         s = s_next
 
-
-    plt.plot(times, velocities, label='Velocity-Position plot')
-    # Velocity
+    print("Total reward for the episode:", total_reward)
+    # Velocity-Position plot
+    plt.figure(0)
+    plt.plot(positions, velocities, label='Velocity-Position plot')
     plt.xlabel('Position')
     plt.ylabel('Velocity')
     plt.title('Velocity-Position plot')
     plt.legend()
+    plt.grid(True)  # Add grid
+    # plt.show()
 
-    # Display the plot
+    # Velocity-Time plot
+    plt.figure(1)
+    plt.plot(times, velocities, label='Velocity-Time plot')
+    plt.xlabel('Time')
+    plt.ylabel('Velocity')
+    plt.title('Velocity-Time plot')
+    plt.legend()
+    plt.grid(True)  # Add grid
+
+    plt.figure(2)
+    plt.plot(times, actions, label='Velocity-Time plot')
+    plt.xlabel('Time')
+    plt.ylabel('Action')
+    plt.title('Action-Time plot')
+    plt.legend()
+    plt.grid(True)  # Add grid
     plt.show()
 
 
