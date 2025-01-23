@@ -24,10 +24,10 @@ parser.add_argument('--eval_interval', type=int, default=int(2.5e3), help='Model
 parser.add_argument('--update_every', type=int, default=50, help='Training Fraquency, in stpes')
 
 parser.add_argument('--gamma', type=float, default=0.99, help='Discounted Factor')
-parser.add_argument('--net_width', type=int, default=256, help='Hidden net width, s_dim-400-300-a_dim')
+parser.add_argument('--net_width', type=int, default=1024, help='Hidden net width, s_dim-400-300-a_dim')
 parser.add_argument('--a_lr', type=float, default=3e-4, help='Learning rate of actor')
 parser.add_argument('--c_lr', type=float, default=3e-4, help='Learning rate of critic')
-parser.add_argument('--batch_size', type=int, default=256, help='batch_size of training')
+parser.add_argument('--batch_size', type=int, default=4096, help='batch_size of training')
 parser.add_argument('--alpha', type=float, default=0.12, help='Entropy coefficient')
 parser.add_argument('--adaptive_alpha', type=str2bool, default=True, help='Use adaptive_alpha or Not')
 opt = parser.parse_args()
