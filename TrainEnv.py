@@ -84,7 +84,7 @@ class TrainSpeedControl(Env):
 
         # Time-related variables (reset each episode)
         self.time = 0.0  # Current time in seconds
-        self.time_left = self.Running_time  # Remaining time in episode
+        self.time_left = float(np.random.randint(117, 157))  # Remaining time in episode
         self.total_energy_kWh = 0.0  # Total energy consumption in kWh
         self.reward = 0.0  # Reset reward accumulator
 

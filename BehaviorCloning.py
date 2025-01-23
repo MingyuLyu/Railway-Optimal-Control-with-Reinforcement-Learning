@@ -29,9 +29,12 @@ class BehaviorCloning(Env):
         # Load Expert Data
         # ----------------------
         expert_data_file = (
-            r"C:\Users\root\Documents\GitHub\Railway-Optimal-Control-with-Reinforcement-Learning\data_reference_single.csv"
+            r"C:\Users\root\Documents\GitHub\Railway-Optimal-Control-with-Reinforcement-Learning\expert_data.csv"
         )
         data = pd.read_csv(expert_data_file, header=None)
+
+        # Keep only the first 81,999 rows:
+        data = data.iloc[:81999].copy()
         # Suppose columns: s0, s1, s2, s3, a0
         self.states_array = data.iloc[:, :4].values  # shape: [N, 4]
         self.actions_array = data.iloc[:, 4].values  # shape: [N,] or [N,1] if you prefer
