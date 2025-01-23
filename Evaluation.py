@@ -101,7 +101,6 @@ def main():
         s = s_next
 
     print("Total reward for the episode:", total_reward)
-    # Velocity-Position plot
     plt.figure(0)
     plt.plot(positions, velocities, label='Velocity-Position plot')
     plt.xlabel('Position')
@@ -127,6 +126,18 @@ def main():
     plt.title('Action-Time plot')
     plt.legend()
     plt.grid(True)  # Add grid
+
+    plt.figure(3)
+    plt.plot(times[:139], rewards[:139], label='Velocity-Time plot')
+    plt.xlabel('Time')
+    plt.ylabel('Rewards')
+    plt.title('Rewards-Time plot')
+    plt.legend()
+    plt.grid(True)  # Add grid
+
+    plt.show()
+
+    # Display the plot
     plt.show()
 
 
