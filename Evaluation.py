@@ -126,6 +126,15 @@ def main():
     plt.title('Action-Time plot')
     plt.legend()
     plt.grid(True)  # Add grid
+
+    plt.figure(3)
+    plt.plot(times[:138], rewards[:138], label='Velocity-Time plot')
+    plt.xlabel('Time')
+    plt.ylabel('Rewards')
+    plt.title('Rewards-Time plot')
+    plt.legend()
+    plt.grid(True)  # Add grid
+
     plt.show()
 
     # Display the plot

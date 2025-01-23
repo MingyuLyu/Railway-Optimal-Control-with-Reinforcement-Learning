@@ -50,7 +50,7 @@ class TrainSpeedControl(Env):
         self.observation_space = Box(low=self.state_min, high=self.state_max, dtype=np.float64)
 
         # Reward structure (fixed)
-        self.reward_weights = [1.0, 0.5, 0.0, 0.0, 1.0]
+        self.reward_weights = [0.0, 1.0, 0.0, 0.5, 1.0]
         self.energy_factor = 1.0
 
         # Max episode steps derived from Episode time and dt
@@ -184,7 +184,7 @@ class TrainSpeedControl(Env):
             self.reward -= (self.velocity ** 2 + abs(self.position - self.station) + abs(self.time - self.Running_time))
 
         self.prev_acceleration = self.acceleration
-
+        self.prev_action = self.action_clipped
         # Update info
         info = {
             'position': self.position,
@@ -258,10 +258,10 @@ class TrainSpeedControl(Env):
         reward_time = 1 if self.position < self.station else 0
 
         # calc energy reward
-        reward_energy = self.action_clipped if self.action_clipped > 0 else 0
+        reward_energy = self.action_clipped * self.velocity if self.action_clipped > 0 else 0
 
         # calc jerk reward
-        reward_jerk = 1 if self.acceleration * self.prev_acceleration < 0 else 0
+        reward_jerk = abs(self.prev_action-self.action_clipped)
 
         # calc shock reward
         reward_shock = 1 if self.velocity > self.speed_limit else 0
