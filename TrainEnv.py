@@ -84,7 +84,10 @@ class TrainSpeedControl(Env):
 
         # Time-related variables (reset each episode)
         self.time = 0.0  # Current time in seconds
+        # self.Running_time = float(np.random.randint(137, 157))  # Remaining time in episode
         self.time_left = self.Running_time  # Remaining time in episode
+        # self.time_left =140
+        # print('Running Time:', self.time_left)
         self.total_energy_kWh = 0.0  # Total energy consumption in kWh
         self.reward = 0.0  # Reset reward accumulator
 
@@ -184,7 +187,7 @@ class TrainSpeedControl(Env):
             self.reward -= (self.velocity ** 2 + abs(self.position - self.station) + abs(self.time - self.Running_time))
 
         self.prev_acceleration = self.acceleration
-        self.prev_action = self.action_clipped
+
         # Update info
         info = {
             'position': self.position,
@@ -261,7 +264,7 @@ class TrainSpeedControl(Env):
         reward_energy = self.action_clipped * self.velocity if self.action_clipped > 0 else 0
 
         # calc jerk reward
-        reward_jerk = abs(self.prev_action-self.action_clipped)
+        reward_jerk = 1 if self.acceleration * self.prev_acceleration < 0 else 0
 
         # calc shock reward
         reward_shock = 1 if self.velocity > self.speed_limit else 0

@@ -11,10 +11,10 @@ class SAC_countinuous():
 		self.__dict__.update(kwargs)
 		self.tau = 0.005
 
-		self.actor = Actor(self.state_dim, self.action_dim, (self.net_width,self.net_width)).to(self.dvc)
+		self.actor = Actor(self.state_dim, self.action_dim, (self.net_width,self.net_width,self.net_width)).to(self.dvc)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.a_lr)
 
-		self.q_critic = Double_Q_Critic(self.state_dim, self.action_dim, (self.net_width,self.net_width)).to(self.dvc)
+		self.q_critic = Double_Q_Critic(self.state_dim, self.action_dim, (self.net_width,self.net_width,self.net_width)).to(self.dvc)
 		self.q_critic_optimizer = torch.optim.Adam(self.q_critic.parameters(), lr=self.c_lr)
 		self.q_critic_target = copy.deepcopy(self.q_critic)
 		# Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -90,7 +90,7 @@ class SAC_countinuous():
 	def load(self,EnvName, timestep):
 		self.actor.load_state_dict(torch.load("./model/{}_actor{}.pth".format(EnvName, timestep), map_location=self.dvc))
 		# self.actor.load_state_dict(torch.load(
-		# 	r"C:\Users\lyumi\Documents\GitHub\Railway-Optimal-Control-with-Reinforcement-Learning\bc_actor.pth",
+		# 	r"C:\Users\root\Documents\GitHub\Railway-Optimal-Control-with-Reinforcement-Learning\bc_actor.pth",
 		# 	map_location=self.dvc))
 
 		self.q_critic.load_state_dict(torch.load("./model/{}_q_critic{}.pth".format(EnvName, timestep), map_location=self.dvc))
