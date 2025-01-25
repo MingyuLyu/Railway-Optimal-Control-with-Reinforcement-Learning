@@ -150,7 +150,6 @@ class TrainSpeedControl(Env):
         # # v = a * t + v0
         # self.velocity += self.acceleration * self.dt
 
-
         # Update others
         self.time += self.dt
         self.time_left = self.Running_time - self.time
