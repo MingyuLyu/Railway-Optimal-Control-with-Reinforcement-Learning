@@ -12,7 +12,7 @@ class TrainSpeedControl(Env):
         self.Mass = 300.0  # Mass in tons
         self.Max_traction_F = 0.0  # Max traction force in kN
         self.Episode_time = 200.0  # Total episode time in seconds
-        self.Running_time = 150.0
+        self.Running_time = 140.0
 
         # Environmental parameters
         self.track_length = 2500.0  # Track length in meters
@@ -84,8 +84,9 @@ class TrainSpeedControl(Env):
 
         # Time-related variables (reset each episode)
         self.time = 0.0  # Current time in seconds
-        self.Running_time = float(np.random.randint(137, 157))  # Remaining time in episode
+        # self.Running_time = float(np.random.randint(137, 157))  # Remaining time in episode
         self.time_left = self.Running_time  # Remaining time in episode
+        # self.time_left =140
         # print('Running Time:', self.time_left)
         self.total_energy_kWh = 0.0  # Total energy consumption in kWh
         self.reward = 0.0  # Reset reward accumulator
