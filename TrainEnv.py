@@ -165,14 +165,17 @@ class TrainSpeedControl(Env):
 
         self.energy = self.action_clipped * self.velocity if self.action_clipped > 0 else 0
         self.total_energy_kWh += self.energy
-        self.delta_s = abs(self.position - self.position) if self.time == self.Running_time else 0
-        self.delta_t = abs(self.Running_time - self.time) if self.position == self.station else 0
+        self.delta_s = abs(self.distance_left) if self.time_left == 0 else 0
+        self.delta_t = abs(self.time_left) if self.distance_left == 0 else 0
+        # print('delta_s:', self.delta_s)
+        # print('delta_t', self.delta_t)
 
         self.r1 = 1 - self.delta_t if self.delta_t < 1 else 0
         self.r2 = 1 - self.delta_s if self.delta_s < 0.3 else 0
         self.r3 = 0.1 - 0.05 * self.total_energy_kWh
-
-        self.reward = self.r1 + self.r2
+        # print('r1:', self.r1)
+        # print('r2:', self.r2)
+        # print('r3:', self.r3)
 
         # Judge terminated condition
         self.terminated = bool(self.velocity > self.speed_limit or self.delta_s > 0.3 or self.delta_t > 1)
@@ -185,8 +188,10 @@ class TrainSpeedControl(Env):
         # self.reward = np.array(reward_list).dot(np.array(self.reward_weights))
 
         if self.terminated:
-            self.episode_count += 1
             self.reward -= 50
+
+        if self.truncated:
+            self.reward += self.r1 + self.r2
 
         if self.terminated or self.truncated:
             self.reward += self.r3
