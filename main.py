@@ -37,6 +37,7 @@ print(opt)
 
 
 def main():
+<<<<<<< Updated upstream:main.py
     # EnvName = ['Pendulum-v1','LunarLanderContinuous-v2','Humanoid-v4','HalfCheetah-v4','BipedalWalker-v3','BipedalWalkerHardcore-v3']
     # BrifEnvName = ['PV1', 'LLdV2', 'Humanv4', 'HCv4','BWv3', 'BWHv3']
 
@@ -45,11 +46,32 @@ def main():
     # eval_env = gym.make(EnvName[opt.EnvIdex])
     env = TrainSpeedControl()
     eval_env = TrainSpeedControl()
+=======
+    # Check if CUDA is available
+    cuda_available = torch.cuda.is_available()
+    print("Is CUDA available:", cuda_available)
+
+    # Get the name of the CUDA device if available
+    if cuda_available:
+        print("CUDA Device Name:", torch.cuda.get_device_name(0))
+        print("CUDA Device Count:", torch.cuda.device_count())
+
+    EnvName = ['Pendulum-v1','LunarLanderContinuous-v2','Humanoid-v4','HalfCheetah-v4','BipedalWalker-v3','BipedalWalkerHardcore-v3']
+    BrifEnvName = ['PV1', 'LLdV2', 'Humanv4', 'HCv4','BWv3', 'BWHv3']
+
+    # Build Env
+    env = gym.make('Pendulum-v1', render_mode="human" if opt.render else None)
+    eval_env = gym.make('Pendulum-v1')
+>>>>>>> Stashed changes:SAC-Continuous-Pytorch-main/main.py
     opt.state_dim = env.observation_space.shape[0]
     opt.action_dim = env.action_space.shape[0]
     opt.max_action = float(env.action_space.high[0])   #remark: action space【-max,max】
     opt.max_e_steps = env._max_episode_steps
+<<<<<<< Updated upstream:main.py
     print(f'Env:TrainSpeedControl  state_dim:{opt.state_dim}  action_dim:{opt.action_dim}  '
+=======
+    print('Env:Pendulum-v1  state_dim:{opt.state_dim}  action_dim:{opt.action_dim}  '
+>>>>>>> Stashed changes:SAC-Continuous-Pytorch-main/main.py
           f'max_a:{opt.max_action}  min_a:{env.action_space.low[0]}  max_e_steps:{opt.max_e_steps}')
 
     # Seed Everything

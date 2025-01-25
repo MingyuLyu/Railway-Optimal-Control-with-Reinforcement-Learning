@@ -3,5 +3,9 @@
   <component name="Black">
     <option name="sdkName" value="C:\ProgramData\anaconda3" />
   </component>
+<<<<<<< Updated upstream
   <component name="ProjectRootManager" version="2" project-jdk-name="C:\Users\root\anaconda3" project-jdk-type="Python SDK" />
+=======
+  <component name="ProjectRootManager" version="2" project-jdk-name="C:\Users\lyumi\anaconda3" project-jdk-type="Python SDK" />
+>>>>>>> Stashed changes
 </project>
