@@ -196,7 +196,6 @@ class TrainSpeedControl(Env):
         if self.terminated or self.truncated:
             self.reward += self.r3
 
-
         self.prev_acceleration = self.acceleration
         self.prev_action = self.action_clipped
         # Update info
